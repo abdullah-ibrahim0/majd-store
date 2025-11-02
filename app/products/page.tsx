@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "../../components/layout/Header";
 import { Footer } from "../../components/layout/Footer";
@@ -27,7 +28,7 @@ const colors = [
 
 const ITEMS_PER_PAGE = 12;
 
-export default function ProductsPage() {
+function ProductsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -49,12 +50,20 @@ export default function ProductsPage() {
     selectedColors.length +
     (showInStockOnly ? 1 : 0);
 
-  // Call fetchCategories on mount
+  // Fetch categories on mount
   React.useEffect(() => {
-    fetchCategories();
+    async function fetchCategoriesData() {
+      try {
+        const cats = await getCategories();
+        setCategories(cats);
+      } catch {
+        setCategories([]);
+      }
+    }
+    fetchCategoriesData();
   }, []);
 
-  // Parse filters from URL on mount or URL change
+  // Parse filters from URL
   React.useEffect(() => {
     const categoryParams = searchParams.get("category");
     if (categoryParams) {
@@ -65,18 +74,17 @@ export default function ProductsPage() {
     setCurrentPage(1);
   }, [searchParams]);
 
-  // Update URL query params when categories change
-  const updateURL = (categories: string[]) => {
+  // Update URL query params
+  const updateURL = React.useCallback((categories: string[]) => {
     const params = new URLSearchParams(window.location.search);
     if (categories.length > 0) {
       params.set("category", categories.join(","));
     } else {
       params.delete("category");
     }
-    // Reset pagination on filter change
     params.delete("page");
     router.replace(`${window.location.pathname}?${params.toString()}`);
-  };
+  }, [router]);
 
   const onCategoryChange = (categorySlug: string, checked: boolean) => {
     const newCategories = checked
@@ -87,9 +95,7 @@ export default function ProductsPage() {
     setCurrentPage(1);
   };
 
-  // Similar handler can be created for sizes/colors if you want URL sync for them
-
-  const fetchProducts = React.useCallback(async () => {
+  const fetchProductsData = React.useCallback(async () => {
     try {
       const offset = (currentPage - 1) * ITEMS_PER_PAGE;
       const products = await getProducts({
@@ -131,17 +137,8 @@ export default function ProductsPage() {
   }, [currentPage, selectedCategories, selectedSizes, selectedColors, priceRange, showInStockOnly]);
 
   React.useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
-
-  async function fetchCategories() {
-    try {
-      const cats = await getCategories();
-      setCategories(cats);
-    } catch {
-      setCategories([]);
-    }
-  }
+    fetchProductsData();
+  }, [fetchProductsData]);
 
   const clearAllFilters = () => {
     setSelectedCategories([]);
@@ -150,7 +147,7 @@ export default function ProductsPage() {
     setShowInStockOnly(false);
     setPriceRange([0, 500]);
     setCurrentPage(1);
-    updateURL([]); // Clear category from URL too
+    updateURL([]);
   };
 
   const FilterContent = () => (
@@ -361,5 +358,13 @@ export default function ProductsPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading products...</div>}>
+      <ProductsContent />
+    </Suspense>
   );
 }
