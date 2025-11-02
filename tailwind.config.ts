@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -11,6 +12,18 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Majd Brand Colors (from logo)
+        brand: {
+          dark: '#1E332C',
+          accent: '#C8A882',
+          cream: '#F5F3F1',
+        },
+        text: {
+          dark: '#2D3436',
+          medium: '#636E72',
+          light: '#B2BEC3',
+        },
+        // Original theme colors
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -59,5 +72,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;
