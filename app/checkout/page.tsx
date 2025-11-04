@@ -33,7 +33,7 @@ const cartItems: CartItem[] = [
     image: "https://images.unsplash.com/photo-1678637803638-0bcc1e13ecae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100",
     size: "M",
     color: "Black",
-    price: 249.99,
+    price: 1249,
     quantity: 1,
   },
   {
@@ -42,16 +42,15 @@ const cartItems: CartItem[] = [
     image: "https://images.unsplash.com/photo-1714328564923-d4826427c991?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=100",
     size: "L",
     color: "Navy",
-    price: 499.99,
+    price: 2499,
     quantity: 1,
   },
 ];
 
-const subtotal: number = 749.98;
-const discount: number = 149.99;
+const subtotal: number = 3748;
+const discount: number = 748;
 const shipping: number = 0;
-const total: number = 599.99;
-
+const total: number = 3000;
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -66,8 +65,8 @@ export default function CheckoutPage() {
     // Shipping Address
     address: "",
     city: "",
-    postalCode: "",
-    country: "United States",
+    // ✅ REMOVED: postalCode field
+    country: "Egypt",
     // Payment
     paymentMethod: "cod",
     // Additional
@@ -94,7 +93,7 @@ export default function CheckoutPage() {
     if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
     if (!formData.address.trim()) newErrors.address = "Address is required";
     if (!formData.city.trim()) newErrors.city = "City is required";
-    if (!formData.postalCode.trim()) newErrors.postalCode = "Postal code is required";
+    // ✅ REMOVED: postal code validation
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -140,7 +139,7 @@ export default function CheckoutPage() {
               <ArrowLeft className="w-5 h-5" />
               Back to Cart
             </Link>
-            <h1 className="text-brand-dark">Checkout</h1>
+            <h1 className="text-3xl font-bold text-brand-dark">Checkout</h1>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -148,8 +147,8 @@ export default function CheckoutPage() {
               {/* Checkout Form */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Contact Information */}
-                <div className="bg-white rounded-xl p-6 shadow-sm">
-                  <h3 className="text-brand-dark mb-6">Contact Information</h3>
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-semibold text-brand-dark mb-6">Contact Information</h3>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <CustomInput
                       label="Full Name"
@@ -182,8 +181,8 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Shipping Address */}
-                <div className="bg-white rounded-xl p-6 shadow-sm">
-                  <h3 className="text-brand-dark mb-6">Shipping Address</h3>
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-semibold text-brand-dark mb-6">Shipping Address</h3>
                   <div className="space-y-4">
                     <CustomInput
                       label="Street Address"
@@ -194,6 +193,7 @@ export default function CheckoutPage() {
                       placeholder="House number and street name"
                       required
                     />
+                    {/* ✅ CHANGED: Only City field now, no postal code */}
                     <div className="grid sm:grid-cols-2 gap-4">
                       <CustomInput
                         label="City"
@@ -204,11 +204,9 @@ export default function CheckoutPage() {
                         required
                       />
                       <CustomInput
-                        label="Postal Code"
-                        name="postalCode"
-                        value={formData.postalCode}
-                        onChange={handleInputChange}
-                        error={errors.postalCode}
+                        label="District/Area"
+                        name="district"
+                        placeholder="e.g., Maadi, Downtown"
                         required
                       />
                     </div>
@@ -216,27 +214,31 @@ export default function CheckoutPage() {
                       label="Country"
                       name="country"
                       value={formData.country}
-                      onChange={handleInputChange}
-                      required
+                      disabled
+                      className="bg-gray-50"
                     />
                   </div>
                 </div>
 
                 {/* Payment Method */}
-                <div className="bg-white rounded-xl p-6 shadow-sm">
-                  <h3 className="text-brand-dark mb-6">Payment Method</h3>
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-semibold text-brand-dark mb-6">Payment Method</h3>
                   <RadioGroup
                     value={formData.paymentMethod}
-                    onValueChange={(value) => setFormData((prev) => ({ ...prev, paymentMethod: value }))}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({ ...prev, paymentMethod: value }))
+                    }
                   >
                     <div className="space-y-3">
-                      <div className="flex items-center space-x-3 p-4 border-2 border-brand-dark rounded-lg bg-brand-dark/5">
+                      <div className="flex items-center space-x-3 p-4 border-2 border-brand-dark rounded-lg bg-brand-dark/5 cursor-pointer">
                         <RadioGroupItem value="cod" id="cod" />
                         <Label htmlFor="cod" className="flex-1 cursor-pointer">
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="font-semibold text-brand-dark">Cash on Delivery</p>
-                              <p className="text-sm text-text-medium">Pay when you receive your order</p>
+                              <p className="text-sm text-text-medium">
+                                Pay when you receive your order
+                              </p>
                             </div>
                             <CustomBadge variant="accent">Recommended</CustomBadge>
                           </div>
@@ -255,10 +257,12 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Order Notes */}
-                <div className="bg-white rounded-xl p-6 shadow-sm">
-                  <h3 className="text-brand-dark mb-6">Additional Information</h3>
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-semibold text-brand-dark mb-6">
+                    Additional Information
+                  </h3>
                   <div>
-                    <Label htmlFor="orderNotes" className="mb-2 block">
+                    <Label htmlFor="orderNotes" className="mb-2 block text-brand-dark">
                       Order Notes (Optional)
                     </Label>
                     <Textarea
@@ -276,32 +280,34 @@ export default function CheckoutPage() {
 
               {/* Order Summary */}
               <div className="lg:col-span-1">
-                <div className="sticky top-24 bg-white rounded-xl p-6 shadow-md space-y-6">
-                  <h3 className="text-brand-dark">Order Summary</h3>
+                <div className="sticky top-24 bg-white rounded-xl p-6 shadow-md border border-gray-200 space-y-6">
+                  <h3 className="text-lg font-semibold text-brand-dark">Order Summary</h3>
 
                   {/* Items */}
-                  <div className="space-y-4">
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
                     {cartItems.map((item) => (
-                      <div key={item.id} className="flex gap-4">
+                      <div key={item.id} className="flex gap-4 pb-4 border-b">
                         <div className="relative w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                           <ImageWithFallback
                             src={item.image}
                             alt={item.name}
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-brand-dark text-white rounded-full flex items-center justify-center text-xs">
+                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-brand-dark text-white rounded-full flex items-center justify-center text-xs font-bold">
                             {item.quantity}
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-brand-dark line-clamp-2">{item.name}</p>
+                          <p className="text-sm font-medium text-brand-dark line-clamp-2">
+                            {item.name}
+                          </p>
                           <p className="text-xs text-text-medium">
                             {item.size && `Size: ${item.size}`}
                             {item.size && item.color && " • "}
                             {item.color && item.color}
                           </p>
-                          <p className="text-sm text-brand-dark mt-1">
-                            ${item.price.toFixed(2)}
+                          <p className="text-sm font-semibold text-brand-dark mt-1">
+                            £{item.price.toFixed(0)}
                           </p>
                         </div>
                       </div>
@@ -309,27 +315,27 @@ export default function CheckoutPage() {
                   </div>
 
                   {/* Price Breakdown */}
-                  <div className="space-y-3 pt-6 border-t">
+                  <div className="space-y-3 pt-4 border-t">
                     <div className="flex justify-between text-text-medium">
                       <span>Subtotal</span>
-                      <span>${subtotal.toFixed(2)}</span>
+                      <span>£{subtotal.toFixed(0)}</span>
                     </div>
 
                     {discount > 0 && (
-                      <div className="flex justify-between text-green-600">
+                      <div className="flex justify-between text-green-600 font-medium">
                         <span>Discount</span>
-                        <span>-${discount.toFixed(2)}</span>
+                        <span>-£{discount.toFixed(0)}</span>
                       </div>
                     )}
 
                     <div className="flex justify-between text-text-medium">
                       <span>Shipping</span>
-                      <span>{shipping === 0 ? "FREE" : `$${shipping.toFixed(2)}`}</span>
+                      <span>{shipping === 0 ? "FREE" : `£${shipping.toFixed(0)}`}</span>
                     </div>
 
-                    <div className="flex justify-between text-brand-dark pt-3 border-t">
+                    <div className="flex justify-between text-brand-dark pt-3 border-t font-bold">
                       <span>Total</span>
-                      <span className="text-2xl">${total.toFixed(2)}</span>
+                      <span className="text-2xl">£{total.toFixed(0)}</span>
                     </div>
                   </div>
 
@@ -364,17 +370,17 @@ export default function CheckoutPage() {
                   </p>
 
                   {/* Trust Badges */}
-                  <div className="pt-6 border-t space-y-2 text-sm text-text-medium">
+                  <div className="pt-4 border-t space-y-2 text-sm text-text-medium">
                     <div className="flex items-center gap-2">
-                      <span className="text-green-600">✓</span>
+                      <span className="text-green-600 font-bold">✓</span>
                       <span>Secure checkout</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-green-600">✓</span>
+                      <span className="text-green-600 font-bold">✓</span>
                       <span>Free returns within 30 days</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-green-600">✓</span>
+                      <span className="text-green-600 font-bold">✓</span>
                       <span>Customer support 24/7</span>
                     </div>
                   </div>

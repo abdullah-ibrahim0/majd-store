@@ -212,13 +212,13 @@ function AdminProductsContent() {
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <span className="text-brand-dark">
-                            ${product.discount_price != null
+                            £{product.discount_price != null
                               ? product.discount_price.toFixed(2)
                               : product.base_price.toFixed(2)}
                           </span>
                           {product.discount_price != null && (
                             <span className="text-xs text-text-light line-through">
-                              ${product.base_price.toFixed(2)}
+                              £{product.base_price.toFixed(2)}
                             </span>
                           )}
                         </div>
@@ -292,13 +292,13 @@ function AdminProductsContent() {
                       <p className="text-sm text-text-medium mb-2">{product.category?.name || "-"}</p>
                       <div className="flex items-center gap-2">
                         <span className="text-brand-dark">
-                          ${product.discount_price != null
+                          £{product.discount_price != null
                             ? product.discount_price.toFixed(2)
                             : product.base_price.toFixed(2)}
                         </span>
                         {product.discount_price != null && (
                           <span className="text-xs text-text-light line-through">
-                            ${product.base_price.toFixed(2)}
+                            £{product.base_price.toFixed(2)}
                           </span>
                         )}
                       </div>

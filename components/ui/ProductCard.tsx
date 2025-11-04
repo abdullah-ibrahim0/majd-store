@@ -8,6 +8,7 @@ import { cn } from "./utils";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 
 export interface Product {
+  
   id: string;
   name: string;
   slug: string;
@@ -69,15 +70,15 @@ export function ProductCard({ product, className }: ProductCardProps) {
             {hasDiscount ? (
               <>
                 <span className="text-brand-dark">
-                  ${product.discount_price!.toFixed(2)}
+                  £{product.discount_price!.toFixed(2)}
                 </span>
                 <span className="text-text-light line-through text-sm">
-                  ${product.base_price.toFixed(2)}
+                  £{product.base_price.toFixed(2)}
                 </span>
               </>
             ) : (
               <span className="text-brand-dark">
-                ${product.base_price.toFixed(2)}
+                £{product.base_price.toFixed(2)}
               </span>
             )}
           </div>

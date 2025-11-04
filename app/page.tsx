@@ -18,7 +18,7 @@ const trustBadges = [
   {
     icon: Truck,
     title: "Free Shipping",
-    description: "On orders over $100",
+    description: "On orders over £3000",
   },
   {
     icon: RotateCcw,

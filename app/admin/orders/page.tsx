@@ -244,7 +244,7 @@ export default function AdminOrdersPage() {
                     <TableCell className="text-text-medium">{order.phone}</TableCell>
                     <TableCell>{order.items}</TableCell>
                     <TableCell className="text-brand-dark">
-                      ${order.total.toFixed(2)}
+                      £{order.total.toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <CustomBadge variant={getStatusBadgeVariant(order.status)}>
@@ -284,7 +284,7 @@ export default function AdminOrdersPage() {
                 <div className="flex items-center justify-between pt-2">
                   <div className="text-sm text-text-medium">
                     <span>{order.items} items • </span>
-                    <span className="text-brand-dark">${order.total.toFixed(2)}</span>
+                    <span className="text-brand-dark">£{order.total.toFixed(2)}</span>
                   </div>
                   <CustomButton variant="outline" size="sm" asChild>
                     <Link href={`/admin/orders/${order.id}`}>

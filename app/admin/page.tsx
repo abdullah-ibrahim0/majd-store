@@ -31,7 +31,7 @@ const stats = [
   },
   {
     title: "Revenue",
-    value: "$45,231",
+    value: "£45,231",
     change: "+18%",
     trend: "up",
     icon: DollarSign,
@@ -182,7 +182,7 @@ export default function AdminDashboard() {
                       <TableRow key={order.id}>
                         <TableCell className="font-medium">{order.orderNumber}</TableCell>
                         <TableCell>{order.customer}</TableCell>
-                        <TableCell>${order.total.toFixed(2)}</TableCell>
+                        <TableCell>£{order.total.toFixed(2)}</TableCell>
                         <TableCell>
                           <CustomBadge variant={getStatusBadgeVariant(order.status)}>
                             {order.status}

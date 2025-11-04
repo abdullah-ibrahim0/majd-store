@@ -5,9 +5,9 @@ import { CustomButton } from "../ui/CustomButton";
 
 const footerLinks = {
   categories: [
-    { name: "Women's Clothing", href: "/products?category=women" },
-    { name: "Men's Clothing", href: "/products?category=men" },
-    { name: "Kids' Clothing", href: "/products?category=kids" },
+    { name: "For Women", href: "/products?category=women" },
+    { name: "For Men", href: "/products?category=men" },
+    { name: "For Kids", href: "/products?category=kids" },
     { name: "Perfumes", href: "/products?category=perfumes" },
   ],
   support: [

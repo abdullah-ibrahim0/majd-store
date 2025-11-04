@@ -15,15 +15,15 @@ import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { createClient } from "@/lib/supabase/client";
 import type { Product, ProductVariant, ProductImage, Category } from "@/lib/types";
 
-// Initialise client once
 const supabase = createClient();
 
 interface Variant {
   id: string;
   size: string;
   color: string;
-  stock: number;
+  stock_quantity: number;
   sku: string;
+  isNew: boolean;
 }
 
 interface ProductFormProps {
@@ -40,6 +40,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   const [formData, setFormData] = React.useState({
     name: product?.name || "",
@@ -57,8 +58,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
       id: v.id,
       size: v.size || "",
       color: v.color || "",
-      stock: v.stock_quantity,
+      stock_quantity: v.stock_quantity,
       sku: v.sku,
+      isNew: false,
     })) || []
   );
 
@@ -66,8 +68,11 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const [galleryImages, setGalleryImages] = React.useState<string[]>(
     product?.product_images.map(img => img.image_url) || []
   );
+  const [existingGalleryIds, setExistingGalleryIds] = React.useState<string[]>(
+    product?.product_images.map(img => img.id) || []
+  );
 
-  // Auto‑generate slug
+  // Auto-generate slug
   React.useEffect(() => {
     if (formData.name && !product?.slug) {
       const slug = formData.name
@@ -91,15 +96,16 @@ export function ProductForm({ product, categories }: ProductFormProps) {
       id: `temp-${Date.now()}`,
       size: "",
       color: "",
-      stock: 0,
+      stock_quantity: 0,
       sku: "",
+      isNew: true,
     };
     setVariants([...variants, newVariant]);
   };
 
   const handleUpdateVariant = (
     id: string,
-    field: keyof Variant,
+    field: keyof Omit<Variant, "id" | "isNew">,
     value: string | number
   ) => {
     setVariants(prev =>
@@ -166,6 +172,10 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   };
 
   const handleRemoveGalleryImage = (index: number) => {
+    const removedId = existingGalleryIds[index];
+    if (removedId) {
+      setExistingGalleryIds(prev => prev.filter((_, i) => i !== index));
+    }
     setGalleryImages(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -177,6 +187,13 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     if (!formData.description.trim())
       newErrors.description = "Description is required";
     if (!formData.category_id) newErrors.category_id = "Category is required";
+
+    // ✅ NEW: Validate category exists
+    const selectedCategory = categories.find(c => c.id === formData.category_id);
+    if (!selectedCategory) {
+      newErrors.category_id = "Selected category no longer exists. Please select another.";
+    }
+
     if (!formData.base_price || parseFloat(formData.base_price) <= 0)
       newErrors.base_price = "Valid base price is required";
     if (
@@ -184,6 +201,18 @@ export function ProductForm({ product, categories }: ProductFormProps) {
       parseFloat(formData.discount_price) >= parseFloat(formData.base_price)
     )
       newErrors.discount_price = "Discount price must be less than base price";
+
+    // Validate variants
+    if (variants.length === 0) {
+      newErrors.variants = "At least one variant is required";
+    } else {
+      variants.forEach((v, idx) => {
+        if (!v.size.trim()) newErrors[`variant_${idx}_size`] = "Size is required";
+        if (!v.color.trim()) newErrors[`variant_${idx}_color`] = "Color is required";
+        if (v.stock_quantity < 0) newErrors[`variant_${idx}_stock`] = "Stock cannot be negative";
+        if (!v.sku.trim()) newErrors[`variant_${idx}_sku`] = "SKU is required";
+      });
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -194,6 +223,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     if (!validateForm()) return;
 
     setIsSaving(true);
+    setSuccessMessage(null);
 
     try {
       const productData = {
@@ -208,58 +238,149 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         image_url: mainImage,
       };
 
+      console.log("[ProductForm] Saving product with category_id:", formData.category_id);
+
       let productId: string;
 
       if (product) {
-  // FIX: Use simpler update without .select().single()
-  const { error } = await supabase
-    .from("products")
-    .update(productData)
-    .eq("id", product.id);
+        const { error } = await supabase
+          .from("products")
+          .update(productData)
+          .eq("id", product.id);
 
-  if (error) throw error;
-  productId = product.id;
-} else {
-  const { data, error } = await supabase
-    .from("products")
-    .insert([productData])
-    .select("id")
-    .single();
+        if (error) throw error;
+        productId = product.id;
+        console.log("[ProductForm] Product updated:", productId);
+      } else {
+        const { data, error } = await supabase
+          .from("products")
+          .insert([productData])
+          .select("id")
+          .single();
 
-  if (error) throw error;
-  productId = data.id;
-}
-
-      // Variants
-      const variantOps = variants.map(async v => {
-        const { id, ...rest } = v;
-        if (id.startsWith("temp")) {
-          return supabase
-            .from("product_variants")
-            .insert([{ ...rest, product_id: productId }]);
-        } else {
-          return supabase.from("product_variants").update(rest).eq("id", id);
+        if (error) {
+          console.error("[ProductForm] Insert error:", error);
+          throw error;
         }
-      });
-      await Promise.all(variantOps);
-
-      // Gallery
-      if (galleryImages.length > 0) {
-        const galleryOps = galleryImages.map((url, i) =>
-          supabase.from("product_images").insert({
-            product_id: productId,
-            image_url: url,
-            display_order: i,
-          })
-        );
-        await Promise.all(galleryOps);
+        productId = data.id;
+        console.log("[ProductForm] Product created:", productId);
       }
 
-      alert(product ? "Product updated!" : "Product created!");
-      router.push("/admin/products");
+      // Handle variants: insert new ones, update existing ones, delete removed ones
+      const variantsToInsert: Array<Omit<Variant, "id" | "isNew">> = [];
+      const variantsToUpdate: Map<string, Omit<Variant, "id" | "isNew">> = new Map();
+      const variantsToDelete: string[] = [];
+
+      // Separate variants into insert/update operations
+      variants.forEach(({ id, size, color, stock_quantity, sku }) => {
+        const variantData = { size, color, stock_quantity, sku };
+        if (id.startsWith("temp")) {
+          variantsToInsert.push(variantData);
+        } else {
+          variantsToUpdate.set(id, variantData);
+        }
+      });
+
+      // Find variants that were deleted
+      if (product?.product_variants) {
+        const currentVariantIds = variants.map(v => v.id).filter(id => !id.startsWith("temp"));
+        product.product_variants.forEach(originalVariant => {
+          if (!currentVariantIds.includes(originalVariant.id)) {
+            variantsToDelete.push(originalVariant.id);
+          }
+        });
+      }
+
+      // Insert new variants
+      if (variantsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from("product_variants")
+          .insert(
+            variantsToInsert.map(variantData => ({
+              ...variantData,
+              product_id: productId,
+            }))
+          );
+
+        if (insertError) throw insertError;
+        console.log("[ProductForm] Variants inserted:", variantsToInsert.length);
+      }
+
+      // Update existing variants
+      for (const [variantId, variantData] of variantsToUpdate) {
+        const { error: updateError } = await supabase
+          .from("product_variants")
+          .update(variantData)
+          .eq("id", variantId);
+
+        if (updateError) throw updateError;
+      }
+
+      if (variantsToUpdate.size > 0) {
+        console.log("[ProductForm] Variants updated:", variantsToUpdate.size);
+      }
+
+      // Delete removed variants
+      if (variantsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("product_variants")
+          .delete()
+          .in("id", variantsToDelete);
+
+        if (deleteError) throw deleteError;
+        console.log("[ProductForm] Variants deleted:", variantsToDelete.length);
+      }
+
+      // Handle gallery images: delete removed ones, insert new ones
+      const deletedImageIds = product?.product_images
+        .filter(img => !galleryImages.includes(img.image_url))
+        .map(img => img.id) || [];
+
+      if (deletedImageIds.length > 0) {
+        const { error: deleteImgError } = await supabase
+          .from("product_images")
+          .delete()
+          .in("id", deletedImageIds);
+
+        if (deleteImgError) throw deleteImgError;
+        console.log("[ProductForm] Gallery images deleted:", deletedImageIds.length);
+      }
+
+      // Insert new gallery images
+      const newImages = galleryImages.filter(
+        url => !product?.product_images.some(img => img.image_url === url)
+      );
+
+      if (newImages.length > 0) {
+        const { error: insertImgError } = await supabase
+          .from("product_images")
+          .insert(
+            newImages.map((url, i) => ({
+              product_id: productId,
+              image_url: url,
+              display_order: product?.product_images.length
+                ? product.product_images.length + i
+                : i,
+            }))
+          );
+
+        if (insertImgError) throw insertImgError;
+        console.log("[ProductForm] Gallery images inserted:", newImages.length);
+      }
+
+      const message = product ? "Product updated successfully!" : "Product created successfully!";
+      setSuccessMessage(message);
+      console.log("[ProductForm] Success:", message);
+
+      setTimeout(() => {
+        router.push("/admin/products");
+      }, 1500);
     } catch (err) {
-      console.error("Save failed:", err);
-      alert(err instanceof Error ? err.message : "Failed to save product.");
+      console.error("[ProductForm] Save failed:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to save product. Please try again.";
+      setErrors({ submit: errorMessage });
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -275,10 +396,22 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           <ArrowLeft className="w-5 h-5" />
           Back to Products
         </Link>
-        <h1 className="text-brand-dark">
+        <h1 className="text-3xl font-bold text-brand-dark">
           {product ? "Edit Product" : "Add New Product"}
         </h1>
       </div>
+
+      {successMessage && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+          ✓ {successMessage}
+        </div>
+      )}
+
+      {errors.submit && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          ✗ {errors.submit}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="grid lg:grid-cols-3 gap-8">
@@ -328,27 +461,34 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                 </div>
                 <div>
                   <Label htmlFor="category" className="mb-2 block text-brand-dark">
-                    Category *
+                    Category * {categories.length === 0 && "(No categories available)"}
                   </Label>
-                  <Select
-                    value={formData.category_id}
-                    onValueChange={value => {
-                      setFormData(prev => ({ ...prev, category_id: value }));
-                      if (errors.category_id)
-                        setErrors(prev => ({ ...prev, category_id: "" }));
-                    }}
-                  >
-                    <SelectTrigger className={errors.category_id ? "border-red-500" : ""}>
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(cat => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {categories.length === 0 ? (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700 text-sm">
+                      ⚠️ No categories available. Please create a category first.
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.category_id}
+                      onValueChange={value => {
+                        console.log("[ProductForm] Category changed to:", value);
+                        setFormData(prev => ({ ...prev, category_id: value }));
+                        if (errors.category_id)
+                          setErrors(prev => ({ ...prev, category_id: "" }));
+                      }}
+                    >
+                      <SelectTrigger className={errors.category_id ? "border-red-500" : ""}>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map(cat => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name} {!cat.is_active && "(Inactive)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   {errors.category_id && (
                     <p className="mt-1 text-sm text-red-600">{errors.category_id}</p>
                   )}
@@ -484,19 +624,27 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                 </CustomButton>
               </CardHeader>
               <CardContent>
+                {errors.variants && (
+                  <p className="mb-4 text-sm text-red-600">{errors.variants}</p>
+                )}
                 {variants.length === 0 ? (
                   <p className="text-text-medium text-center py-8">
-                    No variants added yet. Click &quot;Add Variant&quot; to create size/color combinations.
+                    No variants added yet. Click &quot;Add Variant&quot; to create size/color
+                    combinations.
                   </p>
                 ) : (
                   <div className="space-y-4">
                     {variants.map((variant, index) => (
-                      <div
-                        key={variant.id}
-                        className="p-4 border rounded-lg space-y-4"
-                      >
+                      <div key={variant.id} className="p-4 border rounded-lg space-y-4">
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-brand-dark">Variant {index + 1}</h4>
+                          <h4 className="text-brand-dark">
+                            Variant {index + 1}
+                            {variant.isNew && (
+                              <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                New
+                              </span>
+                            )}
+                          </h4>
                           <button
                             type="button"
                             onClick={() => handleRemoveVariant(variant.id)}
@@ -514,6 +662,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                               handleUpdateVariant(variant.id, "size", e.target.value)
                             }
                             placeholder="e.g., M, L, XL"
+                            error={errors[`variant_${index}_size`]}
                           />
                           <CustomInput
                             label="Color"
@@ -522,20 +671,22 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                               handleUpdateVariant(variant.id, "color", e.target.value)
                             }
                             placeholder="e.g., Black, Navy"
+                            error={errors[`variant_${index}_color`]}
                           />
                           <CustomInput
                             label="Stock Quantity"
                             type="number"
                             min="0"
-                            value={variant.stock}
+                            value={variant.stock_quantity}
                             onChange={e =>
                               handleUpdateVariant(
                                 variant.id,
-                                "stock",
+                                "stock_quantity",
                                 parseInt(e.target.value) || 0
                               )
                             }
                             placeholder="0"
+                            error={errors[`variant_${index}_stock`]}
                           />
                           <CustomInput
                             label="SKU"
@@ -544,6 +695,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                               handleUpdateVariant(variant.id, "sku", e.target.value)
                             }
                             placeholder="e.g., ESE-BLK-M"
+                            error={errors[`variant_${index}_sku`]}
                           />
                         </div>
                       </div>
@@ -597,7 +749,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                     variant="primary"
                     type="submit"
                     className="w-full"
-                    disabled={isSaving || uploading}
+                    disabled={isSaving || uploading || categories.length === 0}
                   >
                     {isSaving ? (
                       <>Saving...</>
@@ -624,13 +776,14 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 
             <Card className="border-none shadow-md bg-blue-50">
               <CardContent className="p-4">
-                <h4 className="text-brand-dark mb-2">Tips</h4>
+                <h4 className="text-brand-dark mb-2 font-semibold">Tips</h4>
                 <ul className="text-sm text-text-medium space-y-1 list-disc list-inside">
                   <li>Use high-quality product images</li>
                   <li>Write detailed descriptions</li>
-                  <li>Add multiple variants for sizes/colors</li>
+                  <li>Add at least one variant</li>
                   <li>Set competitive pricing</li>
                   <li>Keep stock quantities updated</li>
+                  <li>✅ Select an existing category</li>
                 </ul>
               </CardContent>
             </Card>
